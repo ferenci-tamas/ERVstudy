@@ -1,18 +1,21 @@
-source("dotplotUpgraded.R")
+# library(splines)
+# library(data.table)
 
-mode <- function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
+mode <- function( x ) {
+  ux <- unique( x )
+  ux[ which.max( tabulate( match( x, ux ) ) ) ]
 }
 
-lrtesticenReg <- function(fit, vars = NULL) {
-  if (is.null(vars)) vars <- 1:length(attr(terms(fit$formula), "term.labels"))
-  res <- do.call(rbind, lapply(vars, function(i) {
-    fit2 <- ic_sp(terms(fit$formula)[-i], data = fit$getRawData())
-    data.frame(chisq = 2 * (fit$llk - fit2$llk), df = length(coef(fit)) - length(coef(fit2)),
-                p = 1 - pchisq(2 * (fit$llk - fit2$llk), length(coef(fit)) - length(coef(fit2))))
-  }))
-  rownames(res) <- attr(terms(fit$formula)[vars], "term.labels")
+lrtesticenReg <- function( fit, vars = NULL ) {
+  if ( is.null( vars ) )
+    vars <- 1:length( attr( terms( fit$formula ), "term.labels" ) )
+  res <- do.call( rbind, lapply( vars, function( i ) {
+    fit2 <- icenReg::ic_sp( terms( fit$formula )[ -i ], data = fit$getRawData() )
+    data.frame( chisq = 2 * ( fit$llk - fit2$llk ), df = length( coef( fit ) ) - length( coef( fit2 ) ),
+                p = 1 - pchisq( 2 * ( fit$llk - fit2$llk ), length( coef( fit ) ) - length( coef( fit2 ) ) ) )
+  } ) )
+  # rownames( res ) <- all.vars( fit$formula[ -1 ] )
+  rownames( res ) <- attr( terms( fit$formula )[ vars ], "term.labels" )
   res
 }
 
@@ -68,19 +71,34 @@ plotpred <- function( preds, ci.type = "normal", lrtest = NULL, yfree = FALSE, d
           },
           panel = function( x, y, ...) {
             if( length( unique( x ) )>6 ){
-              Hmisc::panel.xYplot(x, y, type = "l", method = "filled bands", col.fill = gray(seq(.825, .55, length = 5)), ...)
+              Hmisc::panel.xYplot( x, y, type = "l", method = "filled bands", col.fill = gray( seq( .825, .55, length = 5 ) ), ... )
             }
             else {
               Hmisc::panel.Dotplot( as.factor( x ), y, horizontal = FALSE, ... )
               if( discrete.hr.plot ) lattice::panel.text( as.factor( x )[ -1 ], y[ -1 ], round( ( exp( y-y[ 1 ] ) )[ -1 ], 2 ), pos = 4 )
             }
             if( !is.null( lrtest ) ) {
-              pval <- rms::formatNP( lrtest[lattice::panel.number(), 3 ], digits = 3, pvalue = TRUE )
+              pval <- Hmisc::format.pval( lrtest[ lattice::panel.number(), 3 ], digits = 3, eps = 10^(-3))
               pval <- ifelse( grepl( "<", pval ), paste( "P", pval, sep = "" ), paste( "P==", pval, sep = "" ) )
               cpl <- lattice::current.panel.limits()
               lattice::ltext( mean( cpl$xlim ), 0.9*cpl$ylim[2]+0.1*cpl$ylim[1],
-                     parse( text = paste( "chi[",  lrtest[lattice::panel.number(), 2 ], "]^2 == ",
-                                          round( lrtest[lattice::panel.number(), 1 ], 1 ), "~~", pval ) ) )
+                     parse( text = paste( "chi[",  lrtest[ lattice::panel.number(), 2 ], "]^2 == ",
+                                          round( lrtest[ lattice::panel.number(), 1 ], 1 ), "~~", pval ) ) )
             }
           }, scales = list( relation = "free" ) )
+}
+
+plotsummary <- function(fit) {
+  res <- data.frame(confint(fit), fit$coefficients)
+  colnames(res) <- c("lwr", "upr", "HR")
+  res <- exp(res)
+  vars <- all.vars(fit$formula)[-(1:2)]
+  res$varlabs <- rep(vars, sapply(vars, function(x) if(is.factor(fit$.dataEnv$data[[x]])) length(levels(fit$.dataEnv$data[[x]]))-1 else 1))
+  res$reflabs <- as.vector(unlist(sapply(vars, function(x) if(is.factor(fit$.dataEnv$data[[x]]))
+    paste0(levels(fit$.dataEnv$data[[x]])[-1], ":", levels(fit$.dataEnv$data[[x]])[1]) else "+1")))
+  res$lab <- paste0(res$varlabs, " - ", res$reflabs)
+  res$lab <- factor(res$lab, levels = res$lab)
+  ggplot2::ggplot(res, ggplot2::aes(x = HR, xmin = lwr, xmax = upr, y = lab)) + ggplot2::geom_point() +
+    ggplot2::geom_errorbar(width = 0.5) + ggplot2::labs(y = "") + ggplot2::scale_x_log10() + ggplot2::coord_cartesian(xlim = c(0.1, 500)) +
+    ggplot2::geom_vline(xintercept = 1, color = "red") + ggplot2::scale_y_discrete(limits = rev(levels(res$lab)))
 }
