@@ -1,18 +1,33 @@
-Mortality prediction using various ABI assessments
-================
-Endre Kolossváry, Tamás Ferenci, Zoltán Járai, Katalin Farkas
+---
+title: "Mortality prediction using various ABI assessments"
+author: "Endre Kolossváry, Tamás Ferenci, Zoltán Járai, Katalin Farkas"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 12, dpi = 300,
+                      dev = "ragg_png")
+library(data.table)
+library(ggplot2)
+theme_set(theme_bw())
+set.seed(1)
+repbs <- 1000
+source("plotpredicticenReg.R")
+```
 
 ## Data preprocessing
 
 We first load the data:
 
-``` r
+```{r}
 RawData <- readRDS("../KolossvaryERV-RawData.rds")
 ```
 
 We carry out the conversion to appropriate interval-censored format:
 
-``` r
+```{r}
 RawData$LastVis <- as.numeric(apply(RawData[
   , c("DATEV1", "DATEV2", "DATEV3", "DATEV4", "DATEV5", "DATEV6")], 1,
   function(x) tail(which(!is.na(x)), 1)))
@@ -99,79 +114,31 @@ names(RawData)[names(RawData) == "MagasságVBMI"] <- "MagassagVBMI"
 
 Number of patients:
 
-``` r
+```{r}
 nrow(RawData)
 ```
 
-    ## [1] 21875
-
 ABI-HIGH:
 
-``` r
+```{r}
 table(RawData$tradPAD)
-```
-
-    ## 
-    ##    No   Yes 
-    ## 18725  3150
-
-``` r
 prop.table(table(RawData$tradPAD))
-```
-
-    ## 
-    ##    No   Yes 
-    ## 0.856 0.144
-
-``` r
 prop.table(table(RawData[tradPAD == "Yes"]$vessels))*100
 ```
 
-    ## 
-    ##        0        1        2        3        4 
-    ##  0.00000  0.00000 26.82768 26.37076 46.80157
-
 ABI-LOW:
 
-``` r
+```{r}
 table(RawData$alterPAD)
-```
-
-    ## 
-    ##    No   Yes 
-    ## 15677  6198
-
-``` r
 prop.table(table(RawData$alterPAD))
-```
-
-    ## 
-    ##        No       Yes 
-    ## 0.7166629 0.2833371
-
-``` r
 sum(RawData$tradPAD == "No" & RawData$alterPAD == "Yes")
-```
-
-    ## [1] 3048
-
-``` r
 mean(RawData$tradPAD == "No" & RawData$alterPAD == "Yes")
-```
-
-    ## [1] 0.1393371
-
-``` r
 prop.table(table(RawData[alterPAD == "Yes"]$vessels))*100
 ```
 
-    ## 
-    ##        0        1        2        3        4 
-    ##  0.00000 36.30406 26.96592 13.23722 23.49279
-
 Supplementary Figure 1:
 
-``` r
+```{r}
 ggplot(melt(RawData[, .(Betegaz, `ABI-HIGH` = tradABI,
                         `ABI-LOW` = alterABI)],
             id.vars = "Betegaz"),
@@ -180,46 +147,25 @@ ggplot(melt(RawData[, .(Betegaz, `ABI-HIGH` = tradABI,
   labs(x = "Ankle brachial index", y = "Density", color = "")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
-
 Supplementary Figure 2:
 
-``` r
+```{r}
 ggplot(RawData, aes(x = tradABI, y = alterABI)) +
   geom_point(size = 0.1, alpha = 0.2) +
   labs(x = "ABI-HIGH", y = "ABI-LOW")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
-
 Follow-up time statistics:
 
-``` r
+```{r}
 table(is.na(RawData$Right))
-```
-
-    ## 
-    ## FALSE  TRUE 
-    ##  1190 20685
-
-``` r
 prop.table(table(is.na(RawData$Right)))
-```
-
-    ## 
-    ##  FALSE   TRUE 
-    ## 0.0544 0.9456
-
-``` r
 quantile(RawData[is.na(Right)]$Left)
 ```
 
-    ##   0%  25%  50%  75% 100% 
-    ##    0 1786 1823 1845 2588
-
 Survival curve:
 
-``` r
+```{r}
 nullmodel <- icenReg::ic_sp(survival::Surv(Left, Right, type = "interval2") ~ 1, data = RawData,
                             model = "ph")
 
@@ -230,105 +176,33 @@ ggplot(melt(survdat[-nrow(survdat)], id.vars = "surv"),
   geom_step() + labs(x = "Time [months]", y = "Survival [%]")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
-
 Mortality risks:
 
-``` r
+```{r}
 table(is.na(RawData[alterPAD == "No" & alterPAD == "No"]$Right))
-```
-
-    ## 
-    ## FALSE  TRUE 
-    ##   681 14996
-
-``` r
 prop.table(table(is.na(RawData[alterPAD == "No" & alterPAD == "No"]$Right)))
-```
-
-    ## 
-    ##      FALSE       TRUE 
-    ## 0.04343943 0.95656057
-
-``` r
 table(is.na(RawData[tradPAD == "Yes"]$Right))
-```
-
-    ## 
-    ## FALSE  TRUE 
-    ##   331  2819
-
-``` r
 prop.table(table(is.na(RawData[tradPAD == "Yes"]$Right)))
-```
-
-    ## 
-    ##     FALSE      TRUE 
-    ## 0.1050794 0.8949206
-
-``` r
 table(is.na(RawData[alterPAD == "Yes" & tradPAD == "No"]$Right))
-```
-
-    ## 
-    ## FALSE  TRUE 
-    ##   178  2870
-
-``` r
 prop.table(table(is.na(RawData[alterPAD == "Yes" & tradPAD == "No"]$Right)))
 ```
 
-    ## 
-    ##      FALSE       TRUE 
-    ## 0.05839895 0.94160105
-
 Mortality rates:
 
-``` r
+```{r}
 RawData$FU <- ifelse(is.na(RawData$Right), RawData$Left, (RawData$Right + RawData$Left)/2) / 365.241
 quantile(RawData$FU)
-```
-
-    ##       0%      25%      50%      75%     100% 
-    ## 0.000000 4.074707 4.985749 5.045983 7.085732
-
-``` r
 RawData[, .(sum(!is.na(Right))/sum(FU) * 1000)]
-```
-
-    ##          V1
-    ##       <num>
-    ## 1: 12.69204
-
-``` r
 RawData[alterPAD == "No" & tradPAD == "No", .(sum(!is.na(Right))/sum(FU) * 1000)]
-```
-
-    ##          V1
-    ##       <num>
-    ## 1: 10.05138
-
-``` r
 RawData[tradPAD == "Yes", .(sum(!is.na(Right))/sum(FU) * 1000)]
-```
-
-    ##          V1
-    ##       <num>
-    ## 1: 25.68101
-
-``` r
 RawData[alterPAD == "Yes" & tradPAD == "No", .(sum(!is.na(Right))/sum(FU) * 1000)]
 ```
-
-    ##          V1
-    ##       <num>
-    ## 1: 13.56833
 
 ## Multivariable model (full dataset)
 
 Preparing the data:
 
-``` r
+```{r}
 RawData <- RawData[, c(
   "Betegaz", "Left", "Right", "Neme", "AGE", "DIABCOMPLV1", "SinfarktV1",
   "SszelutV1", "BMIV1", "GFR60V1", "RRsystV1", "RRdiastV1",
@@ -340,7 +214,7 @@ RawData <- na.omit(RawData, cols = c(2, 4:ncol(RawData)))
 
 Interval-censored survival models:
 
-``` r
+```{r}
 baseformula <- as.formula("survival::Surv(Left, Right, type = 'interval2') ~ 1")
 
 myClust <- parallel::makeCluster(parallel::detectCores() - 1)
@@ -348,11 +222,7 @@ doParallel::registerDoParallel(myClust)
 
 model0 <- icenReg::ic_sp(baseformula, data = RawData,
                          model = "ph", bs_samples = repbs, useMCores = TRUE)
-```
 
-    ## no covariates included, so bootstrapping is not useful. Setting bs_samples = 0
-
-``` r
 model1 <- icenReg::ic_sp(update(baseformula, ~ . + tradPAD), data = RawData,
                          model = "ph", bs_samples = repbs, useMCores = TRUE)
 
@@ -375,7 +245,7 @@ fits <- list(model0, model1, model2, model3, model4, model5)
 
 Models:
 
-``` r
+```{r}
 lapply(1:length(fits), function(i) {
   res <- data.frame(HR = exp(coef(fits[[i]])), exp(confint(fits[[i]])),
                     p = summary(fits[[i]])$summaryParameters[, 5])
@@ -385,36 +255,9 @@ lapply(1:length(fits), function(i) {
 })
 ```
 
-    ## [[1]]
-    ## [1] HR       X2.5..   X97.5..  p        Variable
-    ## <0 sor> (vagy 0 hosszúságú row.names)
-    ## 
-    ## [[2]]
-    ##                 HR   X2.5..  X97.5.. p   Variable
-    ## tradPADYes 2.47589 2.074447 2.955019 0 tradPADYes
-    ## 
-    ## [[3]]
-    ## [1] HR       X2.5..   X97.5..  p        Variable
-    ## <0 sor> (vagy 0 hosszúságú row.names)
-    ## 
-    ## [[4]]
-    ##                   HR   X2.5..  X97.5..        p    Variable
-    ## alterPADYes 1.934763 1.653458 2.263927 2.22e-16 alterPADYes
-    ## 
-    ## [[5]]
-    ## [1] HR       X2.5..   X97.5..  p        Variable
-    ## <0 sor> (vagy 0 hosszúságú row.names)
-    ## 
-    ## [[6]]
-    ##                HR   X2.5..  X97.5..         p Variable
-    ## vessels1 1.246977 1.011349 1.537501 3.887e-02 vessels1
-    ## vessels2 1.978620 1.593778 2.456389 6.263e-10 vessels2
-    ## vessels3 2.041954 1.564238 2.665563 1.519e-07 vessels3
-    ## vessels4 3.034511 2.422652 3.800899 0.000e+00 vessels4
-
 Adequacy indices and fractions of new information:
 
-``` r
+```{r}
 data.table(
   Name = c("Base", paste0("Model ", 1:5)),
   LR_Chi2 = sapply(1:6, function(i) 2*(fits[[i]]$llk - nullmodel$llk)),
@@ -423,18 +266,9 @@ data.table(
 )
 ```
 
-    ##       Name  LR_Chi2 AdequacyIndex FracNewInf
-    ##     <char>    <num>         <num>      <num>
-    ## 1:    Base 1681.034     1.0000000 0.00000000
-    ## 2: Model 1 1822.784     0.9222343 0.07776567
-    ## 3: Model 2 1879.636     0.8943406 0.10565938
-    ## 4: Model 3 1783.632     0.9424782 0.05752179
-    ## 5: Model 4 1894.491     0.8873277 0.11267232
-    ## 6: Model 5 1834.045     0.9165721 0.08342791
-
 Effect of ABI-HIGH and ABI-LOW:
 
-``` r
+```{r}
 predfit3 <- pred(fits[[3]], cont.quant.limit = c(0.01, 0.99))
 predfit3 <- predfit3[order(predfit3$var, as.numeric(predfit3$x)),]
 lrtestfit3 <- lrtesticenReg(fits[[3]], 1)
@@ -450,19 +284,12 @@ predfit5$var <- "ABI-LOW"
 rownames(lrtestfit5) <- "splines::ns(ABI-LOW, df = 4)"
 
 plotpred(predfit3, ci.type = "bs", lrtest = lrtestfit3, xlab = "ABI-HIGH")
-```
-
-![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
-
-``` r
 plotpred(predfit5, ci.type = "bs", lrtest = lrtestfit5, xlab = "ABI-LOW")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-16-2.png)<!-- -->
-
 ROC curve:
 
-``` r
+```{r}
 pargrid <- CJ(model = 2:length(fits), year = 3)
 
 if(!file.exists("tempIntROC_ures.rds")) {
@@ -481,27 +308,17 @@ ggplot(temp, aes(x = 1 - Sp, y = Se, group = factor(model), color = factor(model
   geom_line() + geom_abline() + labs(color = "Model")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
-
 AUCs:
 
-``` r
+```{r}
 unique(temp[, .(model, AUC)])
 ```
-
-    ##    model    AUC
-    ##    <num>  <num>
-    ## 1:     1 0.6087
-    ## 2:     2 0.6327
-    ## 3:     3 0.6082
-    ## 4:     4 0.6354
-    ## 5:     5 0.6201
 
 ### All covariates
 
 Interval-censored survival models:
 
-``` r
+```{r}
 baseformula <- as.formula("survival::Surv(Left, Right, type = 'interval2') ~
                             Neme + splines::ns(AGE, df = 4) + SinfarktV1 + SszelutV1 +
                             DIABCOMPLV1 + GFR60V1 + splines::ns(RRsystV1, df = 4) +
@@ -535,7 +352,7 @@ fits <- list(model0, model1, model2, model3, model4, model5)
 
 Models:
 
-``` r
+```{r}
 lapply(1:length(fits), function(i) {
   res <- data.frame(HR = exp(coef(fits[[i]])), exp(confint(fits[[i]])),
                     p = summary(fits[[i]])$summaryParameters[, 5])
@@ -545,63 +362,9 @@ lapply(1:length(fits), function(i) {
 })
 ```
 
-    ## [[1]]
-    ##                      HR    X2.5..  X97.5..         p       Variable
-    ## NemeMale       2.183996 1.8616812 2.562114 0.000e+00       NemeMale
-    ## SinfarktV1Yes  1.390190 1.1756311 1.643907 1.173e-04  SinfarktV1Yes
-    ## SszelutV1Yes   1.033410 0.7972454 1.339532 8.039e-01   SszelutV1Yes
-    ## DIABCOMPLV1Yes 1.493242 1.2943518 1.722695 3.847e-08 DIABCOMPLV1Yes
-    ## GFR60V1Yes     1.943587 1.6539267 2.283977 6.661e-16     GFR60V1Yes
-    ## 
-    ## [[2]]
-    ##                       HR    X2.5..  X97.5..         p       Variable
-    ## NemeMale       2.1292602 1.7838231 2.541591 0.000e+00       NemeMale
-    ## SinfarktV1Yes  1.3218044 1.1163972 1.565005 1.205e-03  SinfarktV1Yes
-    ## SszelutV1Yes   0.9759527 0.7481087 1.273189 8.576e-01   SszelutV1Yes
-    ## DIABCOMPLV1Yes 1.4406207 1.2539999 1.655015 2.502e-07 DIABCOMPLV1Yes
-    ## GFR60V1Yes     1.9215176 1.6264019 2.270183 1.621e-14     GFR60V1Yes
-    ## tradPADYes     1.8738294 1.5844734 2.216028 2.167e-13     tradPADYes
-    ## 
-    ## [[3]]
-    ##                       HR    X2.5..  X97.5..         p       Variable
-    ## NemeMale       2.0741337 1.7335341 2.481653 1.554e-15       NemeMale
-    ## SinfarktV1Yes  1.3044676 1.1043875 1.540796 1.756e-03  SinfarktV1Yes
-    ## SszelutV1Yes   0.9483898 0.7304462 1.231361 6.908e-01   SszelutV1Yes
-    ## DIABCOMPLV1Yes 1.4273695 1.2315739 1.654293 2.279e-06 DIABCOMPLV1Yes
-    ## GFR60V1Yes     1.9123352 1.5903483 2.299512 5.501e-12     GFR60V1Yes
-    ## 
-    ## [[4]]
-    ##                       HR    X2.5..  X97.5..         p       Variable
-    ## NemeMale       2.1566057 1.8144333 2.563306 0.000e+00       NemeMale
-    ## SinfarktV1Yes  1.3283510 1.1311645 1.559911 5.337e-04  SinfarktV1Yes
-    ## SszelutV1Yes   0.9953336 0.7639606 1.296780 9.724e-01   SszelutV1Yes
-    ## DIABCOMPLV1Yes 1.4579738 1.2734961 1.669175 4.690e-08 DIABCOMPLV1Yes
-    ## GFR60V1Yes     1.9226599 1.6229866 2.277666 3.975e-14     GFR60V1Yes
-    ## alterPADYes    1.5947496 1.3884576 1.831692 4.014e-11    alterPADYes
-    ## 
-    ## [[5]]
-    ##                       HR    X2.5..  X97.5..         p       Variable
-    ## NemeMale       2.0764347 1.7322896 2.488949 2.665e-15       NemeMale
-    ## SinfarktV1Yes  1.2952247 1.0920666 1.536177 2.961e-03  SinfarktV1Yes
-    ## SszelutV1Yes   0.9481177 0.7276818 1.235330 6.931e-01   SszelutV1Yes
-    ## DIABCOMPLV1Yes 1.4185248 1.2331309 1.631792 9.960e-07 DIABCOMPLV1Yes
-    ## GFR60V1Yes     1.8917435 1.5853456 2.257359 1.535e-12     GFR60V1Yes
-    ## 
-    ## [[6]]
-    ##                       HR    X2.5..  X97.5..         p       Variable
-    ## NemeMale       2.1256409 1.8571376 2.432964 0.000e+00       NemeMale
-    ## SinfarktV1Yes  1.3045065 1.1168438 1.523702 7.952e-04  SinfarktV1Yes
-    ## SszelutV1Yes   0.9744761 0.7472752 1.270755 8.486e-01   SszelutV1Yes
-    ## DIABCOMPLV1Yes 1.4451461 1.2707200 1.643515 2.016e-08 DIABCOMPLV1Yes
-    ## GFR60V1Yes     1.9088407 1.6432071 2.217415 0.000e+00     GFR60V1Yes
-    ## vessels1       1.1566453 0.9385871 1.425364 1.722e-01       vessels1
-    ## vessels2       1.6474528 1.3361884 2.031226 2.975e-06       vessels2
-    ## vessels3       1.7202072 1.3165990 2.247543 7.006e-05       vessels3
-    ## vessels4       2.0911255 1.7389468 2.514629 4.441e-15       vessels4
-
 Adequacy indices and fractions of new information:
 
-``` r
+```{r}
 data.table(
   Name = c("Base", paste0("Model ", 1:5)),
   LR_Chi2 = sapply(1:6, function(i) 2*(fits[[i]]$llk - nullmodel$llk)),
@@ -610,35 +373,14 @@ data.table(
 )
 ```
 
-    ##       Name  LR_Chi2 AdequacyIndex FracNewInf
-    ##     <char>    <num>         <num>      <num>
-    ## 1:    Base 2428.095     1.0000000 0.00000000
-    ## 2: Model 1 2496.604     0.9725594 0.02744062
-    ## 3: Model 2 2509.680     0.9674920 0.03250795
-    ## 4: Model 3 2478.646     0.9796056 0.02039441
-    ## 5: Model 4 2526.193     0.9611676 0.03883240
-    ## 6: Model 5 2500.975     0.9708594 0.02914059
-
 Effect of ABI-HIGH and ABI-LOW:
 
-``` r
+```{r}
 predfit3 <- pred(fits[[3]], cont.quant.limit = c(0.01, 0.99))
 predfit3 <- predfit3[order(predfit3$var, as.numeric(predfit3$x)),]
-```
-
-    ## Warning in order(predfit3$var, as.numeric(predfit3$x)): NAs introduced by
-    ## coercion
-
-``` r
 lrtestfit3 <- lrtesticenReg(fits[[3]], 10)
 predfit5 <- pred(fits[[5]], cont.quant.limit = c(0.01, 0.99))
 predfit5 <- predfit5[order(predfit5$var, as.numeric(predfit5$x)),]
-```
-
-    ## Warning in order(predfit5$var, as.numeric(predfit5$x)): NAs introduced by
-    ## coercion
-
-``` r
 lrtestfit5 <- lrtesticenReg(fits[[5]], 10)
 
 predfit3 <- predfit3[predfit3$var == "tradABI",]
@@ -649,19 +391,12 @@ predfit5$var <- "ABI-LOW"
 rownames(lrtestfit5) <- "splines::ns(ABI-LOW, df = 4)"
 
 plotpred(predfit3, ci.type = "bs", lrtest = lrtestfit3, xlab = "ABI-HIGH")
-```
-
-![](README_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
-
-``` r
 plotpred(predfit5, ci.type = "bs", lrtest = lrtestfit5, xlab = "ABI-LOW")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-22-2.png)<!-- -->
-
 ROC curve:
 
-``` r
+```{r}
 pargrid <- CJ(model = 2:length(fits), year = 3)
 
 if(!file.exists("tempIntROC.rds")) {
@@ -680,22 +415,11 @@ ggplot(temp, aes(x = 1 - Sp, y = Se, group = factor(model), color = factor(model
   geom_line() + geom_abline() + labs(color = "Model")
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
-
 AUCs:
 
-``` r
+```{r}
 unique(temp[, .(model, AUC)])
 ```
-
-    ##    model    AUC
-    ##    <num>  <num>
-    ## 1:     0 0.7627
-    ## 2:     1 0.7738
-    ## 3:     2 0.7770
-    ## 4:     3 0.7717
-    ## 5:     4 0.7798
-    ## 6:     5 0.7764
 
 ## Multivariable model (tradPAD-negative only)
 
@@ -703,17 +427,15 @@ unique(temp[, .(model, AUC)])
 
 Data preparation:
 
-``` r
+```{r}
 RawData2 <- RawData[tradPAD == "No"]
 RawData2$vessels <- droplevels(RawData2$vessels)
 nrow(RawData2)
 ```
 
-    ## [1] 16341
-
 Estimating the models:
 
-``` r
+```{r}
 baseformula <- as.formula("survival::Surv(Left, Right, type = 'interval2') ~ 1")
 
 myClust <- parallel::makeCluster(parallel::detectCores() - 1)
@@ -721,11 +443,7 @@ doParallel::registerDoParallel(myClust)
 
 model0 <- icenReg::ic_sp(baseformula, data = RawData2,
                          model = "ph", bs_samples = repbs, useMCores = TRUE)
-```
 
-    ## no covariates included, so bootstrapping is not useful. Setting bs_samples = 0
-
-``` r
 model3 <- icenReg::ic_sp(update(baseformula, ~ . + alterPAD), data = RawData2,
                          model = "ph", bs_samples = repbs, useMCores = TRUE)
 
@@ -742,7 +460,7 @@ fits <- list(model0, model3, model4, model5)
 
 AUCs:
 
-``` r
+```{r}
 pargrid <- CJ(model = 2:length(fits), year = 3)
 
 if(!file.exists("tempIntROC_ures_onlyNonTradPAD.rds")) {
@@ -760,29 +478,21 @@ if(!file.exists("tempIntROC_ures_onlyNonTradPAD.rds")) {
 unique(temp[, .(model, AUC)])
 ```
 
-    ##    model    AUC
-    ##    <num>  <num>
-    ## 1:     1 0.5452
-    ## 2:     2 0.5668
-    ## 3:     3 0.5454
-
 ## Multivariable model (diabetic only)
 
 ### Null model
 
 Data preparation:
 
-``` r
+```{r}
 RawData2 <- RawData[DIABCOMPLV1 == "Yes"]
 RawData2$vessels <- droplevels(RawData2$vessels)
 nrow(RawData2)
 ```
 
-    ## [1] 6405
-
 Estimating the models:
 
-``` r
+```{r}
 baseformula <- as.formula("survival::Surv(Left, Right, type = 'interval2') ~ 1")
 
 myClust <- parallel::makeCluster(parallel::detectCores() - 1)
@@ -790,11 +500,7 @@ doParallel::registerDoParallel(myClust)
 
 model0 <- icenReg::ic_sp(baseformula, data = RawData2,
                          model = "ph", bs_samples = repbs, useMCores = TRUE)
-```
 
-    ## no covariates included, so bootstrapping is not useful. Setting bs_samples = 0
-
-``` r
 model1 <- icenReg::ic_sp(update(baseformula, ~ . + tradPAD), data = RawData2,
                          model = "ph", bs_samples = repbs, useMCores = TRUE)
 
@@ -817,7 +523,7 @@ fits <- list(model0, model1, model2, model3, model4, model5)
 
 AUCs:
 
-``` r
+```{r}
 pargrid <- CJ(model = 2:length(fits), year = 3)
 
 if(!file.exists("tempIntROC_ures_onlyDiabetic.rds")) {
@@ -836,11 +542,3 @@ if(!file.exists("tempIntROC_ures_onlyDiabetic.rds")) {
 
 unique(temp[, .(model, AUC)])
 ```
-
-    ##    model    AUC
-    ##    <num>  <num>
-    ## 1:     1 0.5870
-    ## 2:     2 0.6262
-    ## 3:     3 0.6037
-    ## 4:     4 0.6394
-    ## 5:     5 0.6079

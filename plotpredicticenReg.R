@@ -40,8 +40,10 @@ pred <- function( fit, vars = NULL, conf.int = 0.95, cont.quant.limit = c( 0.05,
     predgridcov <- icenReg:::expandX( fit$formula, data = predgrid, fit ) 
     predgridcov <- predgridcov - matrix( rep( fit$covarOffset, nrow( predgridcov ) ), nr = nrow( predgridcov ), byrow = TRUE )
     all_bs_lps <- bs_smps %*% t( predgridcov )
-    res <- data.frame( x = if( is.factor( predgrid[[ var ]] ) ) as.numeric( levels( predgrid[[ var ]] ) )[ predgrid[[ var ]] ]
-                       else predgrid[[ var ]], var = var,
+    res <- data.frame( #x = if( is.factor( predgrid[[ var ]] ) ) as.numeric(predgrid[[ var ]]) else predgrid[[ var ]],
+                       #xlab = if(is.factor(predgrid[[var]])) as.character(predgrid[[var]]) else rep(NA_character_, length(predgrid[[var]])),
+                       x = as.character(predgrid[[ var ]]),
+                       var = var,
                        pred = if ( fit$par=="semi-parametric" )
                          matrix( rep( predict( fit, type = "lp", predgrid ), 3 ), nc = 3 ) +
                          sqrt( diag( predgridcov %*% vcov( fit ) %*% t( predgridcov ) ) ) %*% t( c( 0, -1, 1 ) * qnorm( 1-conf.int/2 ) )
@@ -56,36 +58,36 @@ pred <- function( fit, vars = NULL, conf.int = 0.95, cont.quant.limit = c( 0.05,
   return( preds )
 }
 
-plotpred <- function( preds, ci.type = "normal", lrtest = NULL, yfree = FALSE, discrete.hr.plot = TRUE ) {
+plotpred <- function( preds, ci.type = "normal", lrtest = NULL, yfree = FALSE, discrete.hr.plot = TRUE, xlab = "x" ) {
   preds <- if ( ci.type=="normal" ) preds[ , c( "x", "var", "pred", "normcilwr", "normciupr" ) ] else
     preds[ , c( "x", "var", "pred", "bscilwr", "bsciupr" ) ]
   names( preds )[ 4:5 ] <- c( "lwr", "upr" )
-  Hmisc::xYplot( Hmisc::Cbind( pred, lwr, upr ) ~ x | var, data = preds, ylab = "log hazard",
-          ylim = if( yfree ) lapply( unique( preds$var ), function( v )
-            extendrange( c( preds$lwr[ preds$var==v ], preds$upr[ preds$var==v ] ) ) ) else c( NULL, NULL ),
-          prepanel = function( x, y, ... ) {
-            if( length( unique( x ) )>6 )
-              list( xlim = range( x, na.rm = TRUE ), ylim = extendrange( y ) )
-            else
-              list( xlim = levels( as.factor( x ) ), ylim = extendrange( y ) )
-          },
-          panel = function( x, y, ...) {
-            if( length( unique( x ) )>6 ){
-              Hmisc::panel.xYplot( x, y, type = "l", method = "filled bands", col.fill = gray( seq( .825, .55, length = 5 ) ), ... )
-            }
-            else {
-              Hmisc::panel.Dotplot( as.factor( x ), y, horizontal = FALSE, ... )
-              if( discrete.hr.plot ) lattice::panel.text( as.factor( x )[ -1 ], y[ -1 ], round( ( exp( y-y[ 1 ] ) )[ -1 ], 2 ), pos = 4 )
-            }
-            if( !is.null( lrtest ) ) {
-              pval <- Hmisc::format.pval( lrtest[ lattice::panel.number(), 3 ], digits = 3, eps = 10^(-3))
-              pval <- ifelse( grepl( "<", pval ), paste( "P", pval, sep = "" ), paste( "P==", pval, sep = "" ) )
-              cpl <- lattice::current.panel.limits()
-              lattice::ltext( mean( cpl$xlim ), 0.9*cpl$ylim[2]+0.1*cpl$ylim[1],
-                     parse( text = paste( "chi[",  lrtest[ lattice::panel.number(), 2 ], "]^2 == ",
-                                          round( lrtest[ lattice::panel.number(), 1 ], 1 ), "~~", pval ) ) )
-            }
-          }, scales = list( relation = "free" ) )
+  Hmisc::xYplot( Hmisc::Cbind( pred, lwr, upr ) ~ x | var, data = preds, ylab = "log hazard", xlab = xlab,
+                 ylim = if( yfree ) lapply( unique( preds$var ), function( v )
+                   extendrange( c( preds$lwr[ preds$var==v ], preds$upr[ preds$var==v ] ) ) ) else c( NULL, NULL ),
+                 prepanel = function( x, y, ... ) {
+                   if( length( unique( x ) )>6 )
+                     list( xlim = range( as.numeric(x), na.rm = TRUE ), ylim = extendrange( y ) )
+                   else
+                     list( xlim = levels( as.factor( x ) ), ylim = extendrange( y ) )
+                 },
+                 panel = function( x, y, ...) {
+                   if( length( unique( x ) )>6 ){
+                     Hmisc::panel.xYplot( as.numeric(x), y, type = "l", method = "filled bands", col.fill = gray( seq( .825, .55, length = 5 ) ), ... )
+                   }
+                   else {
+                     Hmisc::panel.Dotplot( as.factor( x ), y, horizontal = FALSE, ... )
+                     if( discrete.hr.plot ) lattice::panel.text( as.factor( x )[ -1 ], y[ -1 ], round( ( exp( y-y[ 1 ] ) )[ -1 ], 2 ), pos = 4 )
+                   }
+                   if( !is.null( lrtest ) ) {
+                     pval <- Hmisc::format.pval( lrtest[ lattice::panel.number(), 3 ], digits = 3, eps = 10^(-3))
+                     pval <- ifelse( grepl( "<", pval ), paste( "P", pval, sep = "" ), paste( "P==", pval, sep = "" ) )
+                     cpl <- lattice::current.panel.limits()
+                     lattice::ltext( mean( cpl$xlim ), 0.9*cpl$ylim[2]+0.1*cpl$ylim[1],
+                                     parse( text = paste( "chi[",  lrtest[ lattice::panel.number(), 2 ], "]^2 == ",
+                                                          round( lrtest[ lattice::panel.number(), 1 ], 1 ), "~~", pval ) ) )
+                   }
+                 }, scales = list( relation = "free" ) )
 }
 
 plotsummary <- function(fit) {
